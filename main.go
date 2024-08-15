@@ -12,7 +12,6 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/joho/godotenv"
 )
 
 // Property struct
@@ -74,10 +73,10 @@ var properties []Property
 func main() {
 
 	// uncomment here for localhost testing
-    err := godotenv.Load()
-    if err != nil {
-        log.Fatal("Error loading .env file:", err)
-    }
+    // err := godotenv.Load()
+    // if err != nil {
+    //     log.Fatal("Error loading .env file:", err)
+    // }
 
 	// Fetch SANITY_API_URL from environment variables
 	sanityAPI := os.Getenv("SANITY_API_URL")
