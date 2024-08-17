@@ -31,6 +31,29 @@ type Property struct {
 	CreatedAt   string        `json:"createdAt"`
 }
 
+// Listing struct
+type Listing struct {
+	ID                    string        `json:"_id"`
+	Property              Reference     `json:"property"`
+	ListingName           string        `json:"listingName"`
+	Description           string        `json:"description"`
+	Price                 float64       `json:"price"`
+	MinimumContractInMonth int           `json:"minimumContractInMonth"`
+	Floor                 int           `json:"floor"`
+	Size                  float64       `json:"size"`
+	Bedroom               int           `json:"bedroom"`
+	Bathroom              int           `json:"bathroom"`
+	Furniture             string        `json:"furniture"`
+	Status                string        `json:"status"`
+	ListingType           string        `json:"listingType"`
+	FacingDirection       string        `json:"facingDirection"`
+	CreatedAt             string        `json:"createdAt"`
+	ListingHero           SanityImage   `json:"listingHero"`
+	ListingPhoto          []SanityImage `json:"listingPhoto"`
+	FloorPlan             SanityImage   `json:"floorPlan"`
+	StatusActive          string        `json:"statusActive"`
+}
+
 type Slug struct {
 	Current string `json:"current"`
 	Type    string `json:"_type"`
@@ -67,8 +90,7 @@ type Asset struct {
 
 // Mock data for now (later, you'll fetch this from Sanity)
 var properties []Property
-
-// const sanityAPI = "https://tq4u5fnu.api.sanity.io/v1/data/query/production?query="
+var listings []Listing
 
 func main() {
 
@@ -100,6 +122,7 @@ func main() {
 	// Route handles & endpoints
 	r.HandleFunc("/properties", GetProperties).Methods("GET")
 	r.HandleFunc("/properties/{slug}", GetPropertyBySlug).Methods("GET")
+	r.HandleFunc("/listings", GetListings).Methods("GET")
 
 	// Start fetching properties from Sanity every hour
 	go func() {
@@ -108,6 +131,7 @@ func main() {
 			start := time.Now()
 
 			fetchPropertiesFromSanity(sanityAPI)
+			fetchListingsFromSanity(sanityAPI)
 
 			log.Printf("Property fetch completed in %s", time.Since(start))
 			log.Println("Next update will occur in 1 hour.")
@@ -182,6 +206,60 @@ func fetchPropertiesFromSanity(sanityAPI string) {
 		log.Println("No properties found in Sanity API response.")
 	}
 }
+
+// GetListings returns all listings
+func GetListings(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(listings)
+}
+
+func fetchListingsFromSanity(sanityAPI string) {
+	query := "*[_type == \"listing\"]"
+	encodedQuery := url.QueryEscape(query)
+	url := sanityAPI + encodedQuery
+
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Println("Failed to fetch listings from Sanity:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Println("Sanity API returned non-200 status:", resp.Status)
+		return
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("Failed to read Sanity API response:", err)
+		return
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		log.Println("Failed to parse JSON from Sanity API:", err)
+		return
+	}
+
+	if listingsData, ok := result["result"].([]interface{}); ok {
+		newListings := []Listing{}
+		for _, listingData := range listingsData {
+			listingBytes, _ := json.Marshal(listingData)
+			var listing Listing
+			if err := json.Unmarshal(listingBytes, &listing); err != nil {
+				log.Println("Failed to unmarshal listing:", err)
+				continue
+			}
+			newListings = append(newListings, listing)
+		}
+		listings = newListings
+		log.Println("Listings successfully updated from Sanity.")
+	} else {
+		log.Println("No listings found in Sanity API response.")
+	}
+}
+
 
 // GetPropertyBySlug returns a single property by slug
 func GetPropertyBySlug(w http.ResponseWriter, r *http.Request) {
